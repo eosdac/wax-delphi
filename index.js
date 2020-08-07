@@ -29,7 +29,9 @@ const get_pairs = async () => {
 
     const pairs = {};
     res.rows.forEach((row) => {
-        pairs[row.name] = row;
+        if (row.active){
+            pairs[row.name] = row;
+        }
     });
 
     return pairs;
@@ -124,15 +126,26 @@ const send_quotes = async () => {
     const newdex = await get_newdex_quotes();
     const nd_pair = pairs['waxpeos'];
     // console.log(newdex[0].last, nd_pair.quoted_precision);
-    const multiplier = Math.pow(10, nd_pair.quoted_precision)
 
-    push_quotes.push({
-        pair: 'waxpeos',
-        value: Math.round(parseFloat(newdex[0].last) * multiplier)
-    });
+    if (required_pairs.includes('waxpeos') && nd_pair) {
+        const multiplier = Math.pow(10, nd_pair.quoted_precision);
+
+        push_quotes.push({
+            pair: 'waxpeos',
+            value: Math.round(parseFloat(newdex[0].last) * multiplier)
+        });
+    }
 
 
-    push_action(push_quotes);
+    try {
+        const res = await push_action(push_quotes);
+
+        console.log(`Pushed transaction ${res.transaction_id}`, res);
+    }
+    catch (e){
+        console.error(`Failed to push quotes - ${e.message}`);
+    }
+
 };
 
 const run = async () => {
