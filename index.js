@@ -13,11 +13,6 @@ const api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), te
 
 const required_pairs = ['waxpbtc', 'waxpeth', 'waxpusd', 'waxpeos'];
 
-const sleep = async (ms) => {
-    return new Promise((resolve) => {
-        setTimeout(resolve, ms);
-    });
-};
 
 const get_pairs = async () => {
     const res = await rpc.get_table_rows({
