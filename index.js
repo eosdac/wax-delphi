@@ -32,14 +32,6 @@ const get_pairs = async () => {
         pairs[row.name] = row;
     });
 
-    // testing
-    pairs['waxpeth'] = {
-        quoted_precision: 8
-    };
-    pairs['waxpeos'] = {
-        quoted_precision: 6
-    };
-
     return pairs;
 };
 
