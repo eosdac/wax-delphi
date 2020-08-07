@@ -76,7 +76,7 @@ const push_action = async (push_quotes) => {
         }
     }];
 
-    console.log(actions);
+    // console.log(actions);
 
     const push_res = await api.transact({
         actions
