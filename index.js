@@ -140,7 +140,7 @@ const send_quotes = async () => {
     try {
         const res = await push_action(push_quotes);
 
-        console.log(`Pushed transaction ${res.transaction_id}`, res);
+        console.log(`Pushed transaction ${res.transaction_id}`);
     }
     catch (e){
         console.error(`Failed to push quotes - ${e.message}`);
