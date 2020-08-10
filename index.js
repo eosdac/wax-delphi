@@ -105,7 +105,11 @@ const send_quotes = async () => {
 
         if (required_pairs.includes(our_pair) && pair){
             // console.log(`Including ${our_pair}`, q);
-            const quote_precision = pair.quoted_precision;
+            let quote_precision = pair.quoted_precision;
+            if (our_pair == 'waxpeth'){
+                // on chain precision is 8 but we get as 10
+                quote_precision += 2;
+            }
             const multiplier = Math.pow(10, quote_precision)
 
             push_quotes.push({
