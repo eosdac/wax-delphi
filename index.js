@@ -145,7 +145,8 @@ const send_quotes = async () => {
 
 const run = async () => {
     send_quotes();
-    setInterval(send_quotes, 60 * 2 * 1000);
+    const interval = config.interval * 1000 || 60 * 2 * 1000;
+    setInterval(send_quotes, interval);
 };
 
 run();
