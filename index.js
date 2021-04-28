@@ -15,19 +15,24 @@ const required_pairs = ['waxpbtc', 'waxpeth', 'waxpusd', 'waxpeos'];
 
 
 const get_pairs = async () => {
-    const res = await rpc.get_table_rows({
-        json: true,
-        code: 'delphioracle',
-        scope: 'delphioracle',
-        table: 'pairs'
-    });
-
     const pairs = {};
-    res.rows.forEach((row) => {
-        if (row.active){
-            pairs[row.name] = row;
-        }
-    });
+
+    try {
+        const res = await rpc.get_table_rows({
+            json: true,
+            code: 'delphioracle',
+            scope: 'delphioracle',
+            table: 'pairs'
+        });
+        res.rows.forEach((row) => {
+            if (row.active){
+                pairs[row.name] = row;
+            }
+        });
+    }
+    catch (e){
+        console.error(e.message);
+    }
 
     return pairs;
 };
@@ -90,28 +95,36 @@ const push_action = async (push_quotes) => {
 
 const send_quotes = async () => {
     const bittrex = await get_bittrex_quotes();
+    if (!bittrex){
+        return;
+    }
 
     const push_quotes = [];
 
     const pairs = await get_pairs();
+    if (!pairs || !pairs.length){
+        return;
+    }
     // console.log(pairs);
 
     bittrex.forEach((q) => {
         const bittrex_pair = q.MarketName.toLowerCase().split('-');
-        const our_pair = `${bittrex_pair[1]}${bittrex_pair[0]}`;
+        if (bittrex_pair && bittrex_pair.length > 1){
+            const our_pair = `${bittrex_pair[1]}${bittrex_pair[0]}`;
 
-        const pair = pairs[our_pair];
-        // console.log(pair, our_pair);
+            const pair = pairs[our_pair];
+            // console.log(pair, our_pair);
 
-        if (required_pairs.includes(our_pair) && pair){
-            // console.log(`Including ${our_pair}`, q);
-            let quote_precision = pair.quoted_precision;
-            const multiplier = Math.pow(10, quote_precision)
+            if (required_pairs.includes(our_pair) && pair){
+                // console.log(`Including ${our_pair}`, q);
+                let quote_precision = pair.quoted_precision;
+                const multiplier = Math.pow(10, quote_precision)
 
-            push_quotes.push({
-                pair: our_pair,
-                value: Math.round(parseFloat(q.Last) * multiplier)
-            });
+                push_quotes.push({
+                    pair: our_pair,
+                    value: Math.round(parseFloat(q.Last) * multiplier)
+                });
+            }
         }
     });
 
