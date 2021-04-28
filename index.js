@@ -119,16 +119,18 @@ const send_quotes = async () => {
 
     // Get waxp/eos from newdex
     const newdex = await get_newdex_quotes();
-    const nd_pair = pairs['waxpeos'];
-    // console.log(newdex[0].last, nd_pair.quoted_precision);
+    if (newdex && newdex.length){
+        const nd_pair = pairs['waxpeos'];
+        // console.log(newdex[0].last, nd_pair.quoted_precision);
 
-    if (required_pairs.includes('waxpeos') && nd_pair) {
-        const multiplier = Math.pow(10, nd_pair.quoted_precision);
+        if (required_pairs.includes('waxpeos') && nd_pair) {
+            const multiplier = Math.pow(10, nd_pair.quoted_precision);
 
-        push_quotes.push({
-            pair: 'waxpeos',
-            value: Math.round(parseFloat(newdex[0].last) * multiplier)
-        });
+            push_quotes.push({
+                pair: 'waxpeos',
+                value: Math.round(parseFloat(newdex[0].last) * multiplier)
+            });
+        }
     }
 
 
