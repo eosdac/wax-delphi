@@ -4,7 +4,7 @@
   "description": "Supplies WAX/EOS, WAX/USD and WAX/ETH pairs to delphioracle",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "author": "",
   "license": "ISC",
@@ -12,5 +12,8 @@
     "eosjs": "^21.0.2",
     "node-fetch": "^2.6.0",
     "text-encoding": "^0.7.0"
+  },
+  "devDependencies": {
+    "jest": "^29.1.1"
   }
 }

@@ -1,22 +1,20 @@
 #!/usr/bin/env node
 
-const { Api, JsonRpc, Serialize } = require('eosjs');
+const { Api, JsonRpc } = require('eosjs');
 const { TextDecoder, TextEncoder } = require('text-encoding');
 const { JsSignatureProvider } = require('eosjs/dist/eosjs-jssig');
 const fetch = require("node-fetch");
 
 const config = require('./config');
+const extract_pairs = require('./extract_pairs');
 
-const rpc = new JsonRpc(config.endpoint, {fetch});
+const rpc = new JsonRpc(config.endpoint, { fetch });
 const signatureProvider = new JsSignatureProvider([config.private_key]);
 const api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
 
-const required_pairs = ['waxpbtc', 'waxpeth', 'waxpusd', 'waxpeos'];
+const required_pairs = ['waxpbtc', 'waxpeth', 'waxpusd'];
 
-
-const get_pairs = async () => {
-    const pairs = {};
-
+const get_pairs_from_delphi_contract = async () => {
     try {
         const res = await rpc.get_table_rows({
             json: true,
@@ -24,138 +22,78 @@ const get_pairs = async () => {
             scope: 'delphioracle',
             table: 'pairs'
         });
-        res.rows.forEach((row) => {
-            if (row.active){
-                pairs[row.name] = row;
-            }
-        });
-    }
-    catch (e){
-        console.error(e.message);
-    }
 
-    return pairs;
+        if (res.rows.length) {
+            const pairs = {};
+            res.rows.forEach((row) => {
+                if (row.active) {
+                    pairs[row.name] = row;
+                }
+            });
+            return pairs
+        }
+    }
+    catch (e) {
+        throw new Error('Error fetching pairs from delphioracle: ' + e.message)
+    }
 };
 
 const get_bittrex_quotes = async () => {
-    const url = 'https://api.bittrex.com/api/v1.1/public/getmarketsummaries';
+    const url = 'https://api.bittrex.com/v3/markets/summaries';
 
     const res = await fetch(url);
     const json = await res.json();
 
-    const wax_markets = json.result.filter((q) => {
-        return q.MarketName.substr(-4) == 'WAXP';
+
+    const wax_markets = json.filter((q) => {
+        return q.symbol.includes('WAXP');
     });
 
     return wax_markets;
 };
 
-const get_newdex_quotes = async () => {
-    const params = {
-        api_key: config.newdex_api_key
-    };
+const push_quotes_to_contract = async (push_quotes) => {
+    try {
+        const actions = [{
+            account: 'delphioracle',
+            name: 'write',
+            authorization: [{
+                actor: config.account,
+                permission: config.permission
+            }],
+            data: {
+                owner: config.account,
+                quotes: push_quotes
+            }
+        }];
 
-    const res = await fetch('https://api.newdex.io/v1/tickers');
-    const json = await res.json();
+        const push_res = await api.transact({
+            actions
+        }, {
+            blocksBehind: 3,
+            expireSeconds: 30,
+        });
 
-    const wax = json.data.filter(q => q.symbol === 'eosio.token-wax-eos');
-
-    return wax;
-};
-
-
-const push_action = async (push_quotes) => {
-
-    console.log(`Pushing quotes`, push_quotes);
-
-    const actions = [{
-        account: 'delphioracle',
-        name: 'write',
-        authorization: [{
-            actor: config.account,
-            permission: config.permission
-        }],
-        data: {
-            owner: config.account,
-            quotes: push_quotes
-        }
-    }];
-
-    // console.log(actions);
-
-    const push_res = await api.transact({
-        actions
-    }, {
-        blocksBehind: 3,
-        expireSeconds: 30,
-    });
-
-    return push_res;
+        return push_res;
+    } catch (e) {
+        throw new Error('Error pushing pairs to delphioracle contract: ' + e.message)
+    }
 };
 
 const send_quotes = async () => {
-    const bittrex = await get_bittrex_quotes();
-    if (!bittrex){
-        return;
-    }
-
-    const push_quotes = [];
-
-    const pairs = await get_pairs();
-    if (!pairs || !pairs.length){
-        return;
-    }
-    // console.log(pairs);
-
-    bittrex.forEach((q) => {
-        const bittrex_pair = q.MarketName.toLowerCase().split('-');
-        if (bittrex_pair && bittrex_pair.length > 1){
-            const our_pair = `${bittrex_pair[1]}${bittrex_pair[0]}`;
-
-            const pair = pairs[our_pair];
-            // console.log(pair, our_pair);
-
-            if (required_pairs.includes(our_pair) && pair){
-                // console.log(`Including ${our_pair}`, q);
-                let quote_precision = pair.quoted_precision;
-                const multiplier = Math.pow(10, quote_precision)
-
-                push_quotes.push({
-                    pair: our_pair,
-                    value: Math.round(parseFloat(q.Last) * multiplier)
-                });
-            }
-        }
-    });
-
-
-
-    // Get waxp/eos from newdex
-    const newdex = await get_newdex_quotes();
-    if (newdex && newdex.length){
-        const nd_pair = pairs['waxpeos'];
-        // console.log(newdex[0].last, nd_pair.quoted_precision);
-
-        if (required_pairs.includes('waxpeos') && nd_pair) {
-            const multiplier = Math.pow(10, nd_pair.quoted_precision);
-
-            push_quotes.push({
-                pair: 'waxpeos',
-                value: Math.round(parseFloat(newdex[0].last) * multiplier)
-            });
-        }
-    }
-
-
     try {
-        const res = await push_action(push_quotes);
+        const bittrex = await get_bittrex_quotes();
+        const pairs = await get_pairs_from_delphi_contract();
 
-        console.log(`Pushed transaction ${res.transaction_id}`);
-    }
-    catch (e){
-        console.error(`Failed to push quotes - ${e.message}`);
-    }
+        const quotes = extract_pairs(bittrex, pairs, required_pairs)
 
+        const response = await push_quotes_to_contract(quotes);
+
+        console.log(`Pushed transaction ${response.transaction_id}`);
+    }
+    catch (e) {
+        console.log(e.message)
+    }
 };
 
 const run = async () => {
