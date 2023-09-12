@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+
 const { Api, JsonRpc } = require('eosjs');
 const { TextDecoder, TextEncoder } = require('text-encoding');
 const { JsSignatureProvider } = require('eosjs/dist/eosjs-jssig');
@@ -7,6 +8,7 @@ const fetch = require("node-fetch");
 
 const config = require('./config');
 const extract_pairs = require('./extract_pairs');
+const extract_gateio_pair = require("./extract_gateio_pair");
 
 const rpc = new JsonRpc(config.endpoint, { fetch });
 const signatureProvider = new JsSignatureProvider([config.private_key]);
@@ -52,6 +54,15 @@ const get_bittrex_quotes = async () => {
     return wax_markets;
 };
 
+const get_gateio_quotes = async () => {
+    const url = 'https://api.cryptowat.ch/markets/gateio/waxpeth/price';
+
+    const res = await fetch(url);
+    const json = await res.json();
+
+    return extract_gateio_pair(json);
+};
+
 const push_quotes_to_contract = async (push_quotes) => {
     try {
         const actions = [{
@@ -85,8 +96,13 @@ const send_quotes = async () => {
         const bittrex = await get_bittrex_quotes();
         const pairs = await get_pairs_from_delphi_contract();
 
+        //                { "pair": "waxpbtc", "value": 436 }[],
         const quotes = extract_pairs(bittrex, pairs, required_pairs)
 
+        const waxpeth = await get_gateio_quotes();
+        if (waxpeth) {
+            quotes.push(waxpeth);
+        }
         const response = await push_quotes_to_contract(quotes);
 
         console.log(`Pushed transaction ${response.transaction_id}`);

@@ -1,4 +1,4 @@
-const extract_pairs = (bittrex, pairs, required_pairs) => {
+const extract_bittrex_pairs = (bittrex, pairs, required_pairs) => {
     return bittrex
         .map(q => {
             // Change the symbol format to match our format 'WAX-BTC' -> 'waxbtc'
@@ -23,4 +23,4 @@ const extract_pairs = (bittrex, pairs, required_pairs) => {
         })
 }
 
-module.exports = extract_pairs
+module.exports = extract_bittrex_pairs
